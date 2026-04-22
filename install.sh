@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-TARGET_DIR="$HOME/.local/share/claude-cleanup"
+TARGET_DIR="$HOME/.local/share/agentic-cleanup"
 SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if ! command -v bun &>/dev/null; then
@@ -19,7 +19,7 @@ if [ -f "$TARGET_DIR/data/timer.pid" ]; then
     fi
 fi
 
-echo "Installing claude-cleanup to $TARGET_DIR..."
+echo "Installing agentic-cleanup to $TARGET_DIR..."
 
 if [ -d "$TARGET_DIR" ]; then
     echo "Removing previous installation..."

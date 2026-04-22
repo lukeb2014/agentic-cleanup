@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-TARGET_DIR="$HOME/.local/share/claude-cleanup"
+TARGET_DIR="$HOME/.local/share/agentic-cleanup"
 
 if [ ! -d "$TARGET_DIR" ]; then
     echo "Nothing to uninstall: $TARGET_DIR does not exist."

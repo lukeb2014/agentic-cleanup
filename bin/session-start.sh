@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-BASE_DIR="$HOME/.local/share/claude-cleanup"
+BASE_DIR="$HOME/.local/share/agentic-cleanup"
 DATA_DIR="$BASE_DIR/data"
 CONTEXT_DIR="$BASE_DIR/context"
 BIN_DIR="$BASE_DIR/bin"

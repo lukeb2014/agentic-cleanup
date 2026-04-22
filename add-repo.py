@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-# Run with: python3 ~/.local/share/claude-cleanup/add-repo.py
-"""Configure a repo to use claude-cleanup hooks and channel."""
+# Run with: python3 ~/.local/share/agentic-cleanup/add-repo.py
+"""Configure a repo to use agentic-cleanup hooks and channel."""
 
 import json
 import os
 import sys
 from pathlib import Path
 
-CLEANUP_DIR = Path.home() / ".local" / "share" / "claude-cleanup"
+CLEANUP_DIR = Path.home() / ".local" / "share" / "agentic-cleanup"
 SESSION_START_CMD = f"bash {CLEANUP_DIR / 'bin' / 'session-start.sh'}"
 SESSION_END_CMD = f"bash {CLEANUP_DIR / 'bin' / 'session-end.sh'}"
 CHANNEL_TS = str(CLEANUP_DIR / "channel" / "cleanup-channel.ts")
@@ -46,7 +46,7 @@ def configure_hooks(settings_path: Path) -> list[str]:
         event_hooks = hooks.get(event, [])
 
         already_exists = any(
-            is_our_hook(hg, "claude-cleanup") for hg in event_hooks
+            is_our_hook(hg, "agentic-cleanup") for hg in event_hooks
         )
         if already_exists:
             messages.append(f"  {event}: already configured, skipping")
@@ -86,7 +86,7 @@ def configure_mcp(mcp_path: Path) -> list[str]:
 
 def main() -> None:
     if not CLEANUP_DIR.exists():
-        print(f"Error: claude-cleanup is not installed at {CLEANUP_DIR}")
+        print(f"Error: agentic-cleanup is not installed at {CLEANUP_DIR}")
         print("Run install.sh first.")
         sys.exit(1)
 
@@ -94,7 +94,7 @@ def main() -> None:
     settings_path = repo_dir / ".claude" / "settings.local.json"
     mcp_path = repo_dir / ".mcp.json"
 
-    print(f"Configuring claude-cleanup for: {repo_dir}")
+    print(f"Configuring agentic-cleanup for: {repo_dir}")
     print()
 
     print("Hooks (.claude/settings.local.json):")

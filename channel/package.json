@@ -1,5 +1,5 @@
 {
-  "name": "claude-cleanup-channel",
+  "name": "agentic-cleanup-channel",
   "version": "0.1.0",
   "private": true,
   "dependencies": {

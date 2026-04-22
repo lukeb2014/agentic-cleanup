@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
-TARGET_DIR="$HOME/.local/share/claude-cleanup"
+TARGET_DIR="$HOME/.local/share/agentic-cleanup"
 PASS=0
 FAIL=0
 

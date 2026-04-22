@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-BASE_DIR="$HOME/.local/share/claude-cleanup"
+BASE_DIR="$HOME/.local/share/agentic-cleanup"
 CONTEXT_FILE="$BASE_DIR/context/ros-cleanup.md"
 
 PROCS=$(ps aux | grep -E '[r]os2|[r]os_|[r]os\.humble' | awk '{print "  PID " $2 " — " $11 " " $12}' 2>/dev/null || true)

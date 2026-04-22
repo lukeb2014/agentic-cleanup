@@ -1,4 +1,4 @@
-# Claude Automatic Cleanup
+# Agentic Cleanup
 
 Prevents Claude Code from accumulating unbounded logs in `/tmp/claude-*` and
 leaving stale ROS2 processes running between sessions.
@@ -55,7 +55,7 @@ cd ai-log-management
 bash install.sh
 ```
 
-This installs to `~/.local/share/claude-cleanup/`, creates the `data/` and
+This installs to `~/.local/share/agentic-cleanup/`, creates the `data/` and
 `context/` directories, and runs `bun install` for the channel server
 dependencies.
 
@@ -67,7 +67,7 @@ current installation (checks `data/timer.pid`).
 From the root of any project you want cleanup enabled in:
 
 ```bash
-python3 ~/.local/share/claude-cleanup/add-repo.py
+python3 ~/.local/share/agentic-cleanup/add-repo.py
 ```
 
 This creates or updates two files in the target repo:
@@ -78,7 +78,7 @@ This creates or updates two files in the target repo:
   channel TypeScript file
 
 Run this once per repo. The generated config points to the installed copy
-at `~/.local/share/claude-cleanup/`.
+at `~/.local/share/agentic-cleanup/`.
 
 ## Usage
 
@@ -131,10 +131,10 @@ unless explicitly requested.
 ## Uninstall
 
 ```bash
-bash ~/.local/share/claude-cleanup/uninstall.sh
+bash ~/.local/share/agentic-cleanup/uninstall.sh
 ```
 
-This kills any running timer, removes `~/.local/share/claude-cleanup/`, and
+This kills any running timer, removes `~/.local/share/agentic-cleanup/`, and
 prints a reminder about per-repo cleanup.
 
 You must manually remove the per-repo configuration from each project:
@@ -177,11 +177,11 @@ bash tests/test-install.sh
 For a manual end-to-end test:
 
 1. Run `bash install.sh`
-2. `cd` into your project repo and run `python3 ~/.local/share/claude-cleanup/add-repo.py`
+2. `cd` into your project repo and run `python3 ~/.local/share/agentic-cleanup/add-repo.py`
 3. Start Claude: `claude --dangerously-load-development-channels server:cleanup`
 4. Verify the channel server is listening on port 8789
 5. Confirm the SessionStart hook fires and initial context is pushed
-6. Wait 30 minutes (or manually run `bash ~/.local/share/claude-cleanup/bin/tick.sh`)
+6. Wait 30 minutes (or manually run `bash ~/.local/share/agentic-cleanup/bin/tick.sh`)
 7. Exit Claude and verify cleanup context is pushed
 
 ## Adding your own scripts
@@ -195,7 +195,7 @@ These run every 30 minutes via `tick.sh` and at session start/end. A check
 script should:
 
 1. Detect a condition (disk usage, stale processes, etc.)
-2. Write context for Claude to `$HOME/.local/share/claude-cleanup/context/<name>.md`
+2. Write context for Claude to `$HOME/.local/share/agentic-cleanup/context/<name>.md`
 3. Write an empty file if there is nothing to report
 
 The context file content is pushed into the active Claude session. Write it
@@ -203,7 +203,7 @@ as if you are briefing Claude: state what happened, what was done (if
 anything), and what Claude should do next.
 
 Runtime state (baselines, previous snapshots) goes in
-`$HOME/.local/share/claude-cleanup/data/`.
+`$HOME/.local/share/agentic-cleanup/data/`.
 
 ### Cleanup scripts (`cleanup/`)
 
@@ -220,7 +220,7 @@ exceeds 5 GB:
 #!/bin/bash
 set -euo pipefail
 
-CONTEXT="$HOME/.local/share/claude-cleanup/context/build-size.md"
+CONTEXT="$HOME/.local/share/agentic-cleanup/context/build-size.md"
 BUILD_DIR="$HOME/Documents/my-project/build"
 
 SIZE_KB=$(du -sk "$BUILD_DIR" 2>/dev/null | awk '{print $1}' || echo 0)
@@ -239,8 +239,8 @@ After adding a script, make it executable (`chmod +x`) and reinstall with
 ## File structure
 
 ```
-ai-log-management/
-  install.sh              Install to ~/.local/share/claude-cleanup/
+agentic-cleanup/
+  install.sh              Install to ~/.local/share/agentic-cleanup/
   uninstall.sh            Remove installation
   add-repo.py             Configure hooks + MCP for a target repo
   channel/

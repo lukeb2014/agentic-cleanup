@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-BASE_DIR="$HOME/.local/share/claude-cleanup"
+BASE_DIR="$HOME/.local/share/agentic-cleanup"
 DATA_DIR="$BASE_DIR/data"
 CONTEXT_FILE="$BASE_DIR/context/ros2.md"
 SAVED_PROCS="$DATA_DIR/ros2-processes"
