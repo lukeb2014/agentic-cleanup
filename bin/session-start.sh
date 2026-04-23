@@ -49,11 +49,11 @@ if [ -n "$CONTEXT" ]; then
         --max-time 10 2>/dev/null || true
 fi
 
-(
+setsid bash -c '
+    echo $$ > "'"$TIMER_PID_FILE"'"
     while sleep 1800; do
-        bash "$BIN_DIR/tick.sh"
+        bash "'"$BIN_DIR"'/tick.sh"
     done
-) </dev/null >/dev/null 2>&1 &
-echo $! > "$TIMER_PID_FILE"
+' </dev/null >/dev/null 2>&1 &
 
 exit 0
