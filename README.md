@@ -128,6 +128,64 @@ At session end, lists all running ROS2 processes and instructs Claude to kill
 any that it started or that are no longer needed. Excludes the `ros2cli.daemon`
 unless explicitly requested.
 
+## Session-limit watcher (every 3 hours, host-global)
+
+A user-level systemd timer (cron fallback) runs `bin/watcher-runner.sh`
+every 3 hours, independent of any Claude session. It iterates
+`watchers/*.sh`.
+
+The bundled `watchers/session-limit.sh`:
+1. Lists tmux panes running `claude`.
+2. Captures each pane's recent output and looks for the 5-hour limit banner.
+3. After the displayed reset time has passed, sends a bare Enter to the
+   pane (`tmux send-keys`) and then POSTs `continue` to the channel
+   server, surfacing it inside the Claude session.
+
+**Requires tmux.** `claude` must be running inside a tmux pane for the
+watcher to detect or continue it. This is an architectural requirement,
+not a v1 limitation — bare terminal emulators do not expose APIs to read
+their visible buffer or inject keystrokes from another process.
+
+### Install tmux
+
+If you don't have tmux yet:
+
+```
+sudo apt install tmux       # Debian / Ubuntu
+sudo dnf install tmux       # Fedora / RHEL
+sudo pacman -S tmux         # Arch / Manjaro
+brew install tmux           # macOS (Homebrew)
+```
+
+### Launch Claude with `claude-autocontinue`
+
+`install.sh` adds an alias to your shell rc (`~/.bashrc` or `~/.zshrc`,
+auto-detected) that launches `claude` inside a tmux session named
+`claude-autocontinue`:
+
+```
+alias claude-autocontinue='tmux new-session -A -s claude-autocontinue "claude --dangerously-skip-permissions --dangerously-load-development-channels server:cleanup"'
+```
+
+After install, run `source ~/.bashrc` (or open a new shell) and start
+Claude with `claude-autocontinue` instead of `claude-autoclean`. The
+watcher only acts on Claude windows running inside tmux, so this alias
+(or any equivalent tmux launcher) is required for the auto-continue
+feature to do anything.
+
+The existing `claude-autoclean` alias is left untouched and still works
+for non-tmux usage; only the watcher half of the feature requires tmux.
+
+### Status
+
+Installs and uninstalls automatically. To check status:
+
+```
+systemctl --user status agentic-cleanup-watcher.timer
+# or, on cron systems:
+crontab -l | grep AGENTIC_CLEANUP_WATCHER
+```
+
 ## Uninstall
 
 ```bash
@@ -250,15 +308,22 @@ agentic-cleanup/
     session-start.sh       SessionStart hook handler
     session-end.sh         SessionEnd hook handler
     tick.sh                Periodic check runner
+    watcher-runner.sh      Iterates watchers/*.sh (run by systemd/cron)
   checks/
     disk.sh                Disk usage check + automatic log cleanup
     ros2.sh                Stale ROS2 process detection
   cleanup/
     ros-cleanup.sh         Session-end ROS2 cleanup instructions
+  watchers/
+    session-limit.sh       Detect + continue after 5-hour session limit
+  systemd/
+    agentic-cleanup-watcher.service.in   Systemd service template
+    agentic-cleanup-watcher.timer.in     3-hour timer template
   context/                 Generated context files (gitignored)
   data/                    Runtime state (gitignored)
   tests/
     test-channel.sh        Channel server integration test
     test-checks.sh         Check script unit tests
     test-install.sh        Install/uninstall lifecycle test
+    test-watchers.sh       Session-limit watcher unit tests
 ```
