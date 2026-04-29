@@ -1,41 +1,12 @@
 # Agentic Cleanup
 
 Prevents Claude Code from accumulating unbounded logs in `/tmp/claude-*` and
-leaving stale ROS2 processes running between sessions.
+leaving stale ROS2 processes running between sessions. Automatically resumes
+Claude after 5-hour usage-limit lockouts.
 
 Uses Claude Code's Hooks (SessionStart/SessionEnd) and the experimental
 Channels feature to push diagnostic context directly into the active Claude
 session. Claude sees the alerts and can act on them without user intervention.
-
-## Architecture
-
-```
-claude --dangerously-load-development-channels server:cleanup
-  |
-  +-- MCP spawns channel server (Bun, localhost:8789)
-  |
-  +-- SessionStart hook --> session-start.sh
-  |     +-- Runs all checks/ scripts immediately
-  |     +-- POSTs initial context to channel --> pushed into Claude
-  |     +-- Starts background timer (sleep 1800 loop)
-  |     +-- Saves timer PID to data/timer.pid
-  |
-  +-- Every 30 min --> tick.sh
-  |     +-- Runs all checks/ scripts
-  |     +-- Concatenates updated context/ files
-  |     +-- POSTs to channel --> pushed into Claude
-  |     +-- Self-terminates after 3 consecutive failures
-  |
-  +-- SessionEnd hook --> session-end.sh
-        +-- Kills background timer
-        +-- Runs tick.sh one final time
-        +-- Runs all cleanup/ scripts (ROS2 shutdown instructions)
-        +-- POSTs final cleanup context to channel
-```
-
-The channel server is a one-way MCP server. Shell scripts detect problems,
-write context files, and POST them to the channel's HTTP endpoint. The channel
-forwards the content as a notification into the Claude session.
 
 ## Prerequisites
 
@@ -45,6 +16,15 @@ forwards the content as a notification into the Claude session.
   channels at **claude.ai > Admin settings > Claude Code > Channels**, or set
   `channelsEnabled: true` in managed settings. Pro and Max users without an
   organization skip this step.
+- **tmux** *(optional)* -- required for the session-limit watcher to
+  auto-continue after 5-hour lockouts. Everything else works without it.
+
+  ```
+  sudo apt install tmux       # Debian / Ubuntu
+  sudo dnf install tmux       # Fedora / RHEL
+  sudo pacman -S tmux         # Arch / Manjaro
+  brew install tmux           # macOS (Homebrew)
+  ```
 
 ## Installation
 
@@ -56,8 +36,10 @@ bash install.sh
 ```
 
 This installs to `~/.local/share/agentic-cleanup/`, creates the `data/` and
-`context/` directories, and runs `bun install` for the channel server
-dependencies.
+`context/` directories, runs `bun install` for the channel server
+dependencies, installs a systemd user timer (or cron fallback) for the
+session-limit watcher, and adds two shell aliases to `~/.bashrc` (or
+`~/.zshrc`).
 
 The installer will refuse to run if an active Claude session is using the
 current installation (checks `data/timer.pid`).
@@ -82,22 +64,71 @@ at `~/.local/share/agentic-cleanup/`.
 
 ## Usage
 
-Channels are in research preview. You must explicitly load the channel when
-starting Claude:
+The installer adds two aliases. After install, run `source ~/.bashrc` (or
+open a new shell) to pick them up.
+
+**`claude-autocontinue`** -- launches Claude inside a tmux session. The
+session-limit watcher can detect lockouts and auto-continue. Use this if
+you have tmux installed and want fully unattended operation:
 
 ```bash
-claude --dangerously-load-development-channels server:cleanup
+claude-autocontinue
 ```
 
-This flag tells Claude Code to honor the `cleanup` MCP server's channel
-capability. Without it, the MCP server starts but channel notifications are
-silently dropped.
+**`claude-autoclean`** -- launches Claude directly, without tmux. You get
+all the checks, cleanup, and channel features, but the watcher can't
+auto-continue after a 5-hour lockout (it has no way to read or send
+keystrokes to a bare terminal):
+
+```bash
+claude-autoclean
+```
+
+Both aliases pass `--dangerously-skip-permissions` and
+`--dangerously-load-development-channels server:cleanup`.
 
 Once running, the system operates automatically:
 
 1. SessionStart fires, runs initial checks, pushes context into the session.
 2. Every 30 minutes, `tick.sh` re-runs checks and pushes updated context.
 3. SessionEnd fires, runs final checks, pushes ROS2 cleanup instructions.
+4. Every 3 hours (independent of the session), the watcher checks for
+   5-hour lockouts and auto-continues if the reset time has passed.
+
+## Architecture
+
+```
+claude --dangerously-load-development-channels server:cleanup
+  |
+  +-- MCP spawns channel server (Bun, localhost:8789)
+  |
+  +-- SessionStart hook --> session-start.sh
+  |     +-- Runs all checks/ scripts immediately
+  |     +-- POSTs initial context to channel --> pushed into Claude
+  |     +-- Starts background timer (sleep 1800 loop)
+  |     +-- Saves timer PID to data/timer.pid
+  |
+  +-- Every 30 min --> tick.sh
+  |     +-- Runs all checks/ scripts
+  |     +-- Concatenates updated context/ files
+  |     +-- POSTs to channel --> pushed into Claude
+  |     +-- Self-terminates after 3 consecutive failures
+  |
+  +-- SessionEnd hook --> session-end.sh
+  |     +-- Kills background timer
+  |     +-- Runs tick.sh one final time
+  |     +-- Runs all cleanup/ scripts (ROS2 shutdown instructions)
+  |     +-- POSTs final cleanup context to channel
+  |
+  +-- Every 3 hours (systemd timer, independent of session)
+        +-- bin/watcher-runner.sh --> watchers/session-limit.sh
+              +-- Scans tmux panes for Claude's 5-hour limit banner
+              +-- After reset time passes: sends Enter, POSTs "continue"
+```
+
+The channel server is a one-way MCP server. Shell scripts detect problems,
+write context files, and POST them to the channel's HTTP endpoint. The channel
+forwards the content as a notification into the Claude session.
 
 ## What it checks
 
@@ -128,14 +159,35 @@ At session end, lists all running ROS2 processes and instructs Claude to kill
 any that it started or that are no longer needed. Excludes the `ros2cli.daemon`
 unless explicitly requested.
 
+### Session-limit watcher (`watchers/session-limit.sh`)
+
+A systemd user timer runs `bin/watcher-runner.sh` every 3 hours, independent
+of any active Claude session. The bundled watcher:
+
+1. Lists tmux panes running `claude`.
+2. Captures each pane's recent output and looks for the 5-hour limit banner.
+3. After the displayed reset time has passed, sends a bare Enter to the pane
+   (`tmux send-keys`) and POSTs `continue` to the channel server.
+
+The watcher gracefully no-ops when tmux isn't installed, no tmux server is
+running, or no Claude panes exist. To check its status:
+
+```
+systemctl --user status agentic-cleanup-watcher.timer
+# or, on cron systems:
+crontab -l | grep AGENTIC_CLEANUP_WATCHER
+```
+
 ## Uninstall
 
 ```bash
 bash ~/.local/share/agentic-cleanup/uninstall.sh
 ```
 
-This kills any running timer, removes `~/.local/share/agentic-cleanup/`, and
-prints a reminder about per-repo cleanup.
+This kills any running timer, stops the systemd watcher timer (or removes the
+cron entry), removes the shell aliases from `~/.bashrc`/`~/.zshrc`, removes
+`~/.local/share/agentic-cleanup/`, and prints a reminder about per-repo
+cleanup.
 
 You must manually remove the per-repo configuration from each project:
 
@@ -170,6 +222,9 @@ bash tests/test-channel.sh
 # Check script unit tests (disk and ROS2 checks with mocked data)
 bash tests/test-checks.sh
 
+# Session-limit watcher tests (mocked tmux/curl, all protocol cases)
+bash tests/test-watchers.sh
+
 # Install/uninstall lifecycle test
 bash tests/test-install.sh
 ```
@@ -178,7 +233,7 @@ For a manual end-to-end test:
 
 1. Run `bash install.sh`
 2. `cd` into your project repo and run `python3 ~/.local/share/agentic-cleanup/add-repo.py`
-3. Start Claude: `claude --dangerously-load-development-channels server:cleanup`
+3. Start Claude: `claude-autocontinue` (or `claude-autoclean` without tmux)
 4. Verify the channel server is listening on port 8789
 5. Confirm the SessionStart hook fires and initial context is pushed
 6. Wait 30 minutes (or manually run `bash ~/.local/share/agentic-cleanup/bin/tick.sh`)
@@ -250,15 +305,22 @@ agentic-cleanup/
     session-start.sh       SessionStart hook handler
     session-end.sh         SessionEnd hook handler
     tick.sh                Periodic check runner
+    watcher-runner.sh      Iterates watchers/*.sh (run by systemd/cron)
   checks/
     disk.sh                Disk usage check + automatic log cleanup
     ros2.sh                Stale ROS2 process detection
   cleanup/
     ros-cleanup.sh         Session-end ROS2 cleanup instructions
+  watchers/
+    session-limit.sh       Detect + continue after 5-hour session limit
+  systemd/
+    agentic-cleanup-watcher.service.in   Systemd service template
+    agentic-cleanup-watcher.timer.in     3-hour timer template
   context/                 Generated context files (gitignored)
   data/                    Runtime state (gitignored)
   tests/
     test-channel.sh        Channel server integration test
     test-checks.sh         Check script unit tests
     test-install.sh        Install/uninstall lifecycle test
+    test-watchers.sh       Session-limit watcher unit tests
 ```

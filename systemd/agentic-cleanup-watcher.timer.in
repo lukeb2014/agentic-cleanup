@@ -1,0 +1,11 @@
+[Unit]
+Description=Run agentic-cleanup watcher every 3 hours
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=3h
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

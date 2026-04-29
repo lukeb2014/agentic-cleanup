@@ -1,0 +1,6 @@
+[Unit]
+Description=agentic-cleanup session-limit watcher
+
+[Service]
+Type=oneshot
+ExecStart=@TARGET_DIR@/bin/watcher-runner.sh
