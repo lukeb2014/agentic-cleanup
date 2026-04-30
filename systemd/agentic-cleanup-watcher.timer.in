@@ -1,9 +1,8 @@
 [Unit]
-Description=Run agentic-cleanup watcher every 3 hours
+Description=Run agentic-cleanup watchers periodically
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=3h
+OnCalendar=*:0/30
 Persistent=true
 AccuracySec=1min
 

@@ -51,13 +51,13 @@ install_systemd_timer() {
         > "$unit_dir/agentic-cleanup-watcher.timer"
     systemctl --user daemon-reload
     systemctl --user enable --now agentic-cleanup-watcher.timer
-    echo "  Installed systemd user timer (every 3 hours)."
+    echo "  Installed systemd user timer (every 30 minutes)."
 }
 
 install_cron_fallback() {
-    local cron_line="0 */3 * * * bash $TARGET_DIR/bin/watcher-runner.sh   # AGENTIC_CLEANUP_WATCHER"
+    local cron_line="*/30 * * * * bash $TARGET_DIR/bin/watcher-runner.sh   # AGENTIC_CLEANUP_WATCHER"
     ( crontab -l 2>/dev/null | grep -v AGENTIC_CLEANUP_WATCHER; echo "$cron_line" ) | crontab -
-    echo "  Installed cron job (every 3 hours)."
+    echo "  Installed cron job (every 30 minutes)."
 }
 
 if systemctl --user --version &>/dev/null && [ -n "${XDG_RUNTIME_DIR:-}" ]; then
